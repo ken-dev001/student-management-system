@@ -1,0 +1,39 @@
+type Student = record {
+  id : text;
+  major : text;
+  name : text;
+  createdAt : nat64;
+  email : text;
+  updatedAt : opt nat64;
+  enrollmentDate : text;
+};
+type StudentPayload = record {
+  major : text;
+  name : text;
+  email : text;
+  enrollmentDate : text;
+};
+type _AzleResult = variant { Ok : Student; Err : text };
+type _AzleResult_1 = variant { Ok : float64; Err : text };
+type _AzleResult_2 = variant { Ok : vec Student; Err : text };
+service : () -> {
+  addStudent : (StudentPayload) -> (_AzleResult);
+  deleteStudent : (text) -> (_AzleResult);
+  getStudent : (text) -> (_AzleResult) query;
+  getStudentByEmail : (text) -> (_AzleResult) query;
+  getStudentCountByMajor : (text) -> (_AzleResult_1) query;
+  getStudents : () -> (_AzleResult_2) query;
+  getStudentsByEnrollmentDateRange : (text, text) -> (_AzleResult_2) query;
+  getStudentsByEnrollmentYear : (float64) -> (_AzleResult_2) query;
+  getStudentsByMajor : (text) -> (_AzleResult_2) query;
+  getStudentsByMajorAndEnrollmentYear : (text, float64) -> (
+      _AzleResult_2,
+    ) query;
+  getStudentsSortedByName : () -> (_AzleResult_2) query;
+  getStudentsWithPagination : (float64, float64) -> (_AzleResult_2) query;
+  searchStudentsByName : (text) -> (_AzleResult_2) query;
+  updateStudent : (text, StudentPayload) -> (_AzleResult);
+  updateStudentEmail : (text, text) -> (_AzleResult);
+  updateStudentMajor : (text, text) -> (_AzleResult);
+  updateStudentName : (text, text) -> (_AzleResult);
+}
