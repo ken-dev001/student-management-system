@@ -1,4 +1,4 @@
-import { $query, $update, Record, StableBTreeMap, Vec, match, Result, nat64, ic, Opt } from 'azle';
+import { $query, $update, Record, StableBTreeMap, Vec, match, Result, nat64, ic, Opt, Variant, text } from 'azle';
 import { v4 as uuidv4 } from 'uuid';
 
 // Define types for Student and StudentPayload
@@ -22,24 +22,30 @@ type StudentPayload = Record<{
 // Create a map to store student records
 const studentStorage = new StableBTreeMap<string, Student>(0, 44, 1024);
 
+const Errors = Variant({
+    InvalidInput: text,
+    StudentDoesNotExist: text
+});
+type Errors = typeof Errors;
+
 $query;
 export function getStudents(): Result<Vec<Student>, string> {
     return Result.Ok(studentStorage.values());
 }
 
 $query;
-export function getStudent(id: string): Result<Student, string> {
+export function getStudent(id: string): Result<Student, Errors> {
     return match(studentStorage.get(id), {
         Some: (student) => Result.Ok<Student, string>(student),
-        None: () => Result.Err<Student, string>(`Student with id=${id} not found`)
+        None: () => Result.Err({StudentDoesNotExist: `Student with id=${id} not found`})
     });
 }
 
 $update;
-export function addStudent(payload: StudentPayload): Result<Student, string> {
+export function addStudent(payload: StudentPayload): Result<Student, Errors> {
     // Input validation
     if (!payload || !payload.name || !payload.email || !payload.enrollmentDate || !payload.major) {
-        return Result.Err("Invalid student payload. All fields are required.");
+        return Result.Err({InvalidInput: "Invalid student payload. All fields are required."});
     }
 
     const student: Student = { id: uuidv4(), createdAt: ic.time(), updatedAt: Opt.None, ...payload };
@@ -48,13 +54,13 @@ export function addStudent(payload: StudentPayload): Result<Student, string> {
 }
 
 $update;
-export function updateStudent(id: string, payload: StudentPayload): Result<Student, string> {
+export function updateStudent(id: string, payload: StudentPayload): Result<Student, Errors> {
     // Input validation
     if (!id) {
-        return Result.Err("Invalid student ID.");
+        return Result.Err({InvalidInput: "Invalid student ID."});
     }
     if (!payload || Object.keys(payload).length === 0) {
-        return Result.Err("Invalid payload. At least one field must be provided for update.");
+        return Result.Err({InvalidInput: "Invalid payload. At least one field must be provided for update."});
     }
 
     return match(studentStorage.get(id), {
@@ -63,15 +69,15 @@ export function updateStudent(id: string, payload: StudentPayload): Result<Stude
             studentStorage.insert(student.id, updatedStudent);
             return Result.Ok<Student, string>(updatedStudent);
         },
-        None: () => Result.Err<Student, string>(`Couldn't update a student with id=${id}. Student not found`)
+        None: () => Result.Err({StudentDoesNotExist: `Couldn't update a student with id=${id}. Student not found`})
     });
 }
 
 $update;
-export function deleteStudent(id: string): Result<Student, string> {
+export function deleteStudent(id: string): Result<Student, Errors> {
     return match(studentStorage.remove(id), {
         Some: (deletedStudent) => Result.Ok<Student, string>(deletedStudent),
-        None: () => Result.Err<Student, string>(`Couldn't delete a student with id=${id}. Student not found.`)
+        None: () => Result.Err({StudentDoesNotExist: `Couldn't delete a student with id=${id}. Student not found.`})
     });
 }
 
@@ -95,26 +101,26 @@ export function getStudentsByEnrollmentDateRange(start: string, end: string): Re
 
 // Update student's major by ID
 $update;
-export function updateStudentMajor(id: string, major: string): Result<Student, string> {
+export function updateStudentMajor(id: string, major: string): Result<Student, Errors> {
     return match(studentStorage.get(id), {
         Some: (student) => {
             const updatedStudent: Student = { ...student, major, updatedAt: Opt.Some(ic.time()) };
             studentStorage.insert(student.id, updatedStudent);
             return Result.Ok<Student, string>(updatedStudent);
         },
-        None: () => Result.Err<Student, string>(`Couldn't update the major for student with id=${id}. Student not found`)
+        None: () => Result.Err({StudentDoesNotExist: `Couldn't update the major for student with id=${id}. Student not found`})
     });
 }
 
 // Update student's email by ID
 $update;
-export function updateStudentEmail(id: string, email: string): Result<Student, string> {
+export function updateStudentEmail(id: string, email: string): Result<Student, Errors> {
     // Input validation
     if (!id) {
-        return Result.Err("Invalid student ID.");
+        return Result.Err({InvalidInput: "Invalid student ID."});
     }
     if (!email) {
-        return Result.Err("Invalid email. Email field is required.");
+        return Result.Err({InvalidInput: "Invalid email. Email field is required."});
     }
 
     return match(studentStorage.get(id), {
@@ -123,7 +129,7 @@ export function updateStudentEmail(id: string, email: string): Result<Student, s
             studentStorage.insert(student.id, updatedStudent);
             return Result.Ok<Student, string>(updatedStudent);
         },
-        None: () => Result.Err<Student, string>(`Couldn't update the email for student with id=${id}. Student not found`)
+        None: () => Result.Err({StudentDoesNotExist: `Couldn't update the email for student with id=${id}. Student not found`})
     });
 }
 
@@ -136,7 +142,7 @@ export function searchStudentsByName(name: string): Result<Vec<Student>, string>
 }
 
 $query;
-export function getStudentByEmail(email: string): Result<Student, string> {
+export function getStudentByEmail(email: string): Result<Student, Errors> {
     const student = studentStorage
         .values()
         .find(student => student.email === email);
@@ -144,7 +150,7 @@ export function getStudentByEmail(email: string): Result<Student, string> {
     if (student) {
         return Result.Ok(student);
     } else {
-        return Result.Err(`Student with email ${email} not found`);
+        return Result.Err({StudentDoesNotExist: `Student with email ${email} not found`});
     }
 }
 
@@ -165,13 +171,13 @@ export function getStudentCountByMajor(major: string): Result<number, string> {
 }
 
 $update;
-export function updateStudentName(id: string, name: string): Result<Student, string> {
+export function updateStudentName(id: string, name: string): Result<Student, Errors> {
     // Input validation
     if (!id) {
-        return Result.Err("Invalid student ID.");
+        return Result.Err({InvalidInput: "Invalid student ID."});
     }
     if (!name) {
-        return Result.Err("Invalid name. Name field is required.");
+        return Result.Err({InvalidInput: "Invalid name. Name field is required."});
     }
 
     return match(studentStorage.get(id), {
@@ -180,7 +186,7 @@ export function updateStudentName(id: string, name: string): Result<Student, str
             studentStorage.insert(student.id, updatedStudent);
             return Result.Ok<Student, string>(updatedStudent);
         },
-        None: () => Result.Err<Student, string>(`Couldn't update the name for student with id=${id}. Student not found`)
+        None: () => Result.Err({StudentDoesNotExist: `Couldn't update the name for student with id=${id}. Student not found`})
     });
 }
 
